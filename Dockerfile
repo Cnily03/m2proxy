@@ -1,30 +1,23 @@
-# 构建阶段
-FROM rust:1.75 as builder
+FROM rust:1.89-alpine AS builder
 
 WORKDIR /app
 
-# 复制 Cargo 文件
+RUN update-ca-certificates
+RUN apk add --no-cache openssl-dev openssl-libs-static musl-dev pkgconfig clang lld
+
+COPY .cargo ./.cargo
 COPY Cargo.toml Cargo.lock ./
-
-# 创建一个虚拟的 main.rs 来预编译依赖
-RUN mkdir src && echo "fn main() {}" > src/main.rs
-RUN cargo build --release
-RUN rm src/main.rs
-
-# 复制源代码
 COPY src ./src
 
-# 构建应用
-RUN cargo build --release
+RUN cargo build --bin m2proxy --release --target x86_64-unknown-linux-musl && \
+    mkdir -p /usr/local/bin && \
+    cp target/x86_64-unknown-linux-musl/release/m2proxy /usr/local/bin/m2proxy
 
-# 运行阶段 - 使用 scratch
 FROM scratch
 
-# 复制编译好的二进制文件
-COPY --from=builder /app/target/release/m2proxy /m2proxy
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+COPY --from=builder /usr/local/bin/m2proxy /m2proxy
 
-# 暴露端口
 EXPOSE 1234
 
-# 设置入口点
 ENTRYPOINT ["/m2proxy"]

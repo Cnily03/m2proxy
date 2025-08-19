@@ -18,7 +18,7 @@ jobs:
       matrix:
         include:
           - os: ubuntu-latest
-            target: x86_64-unknown-linux-musl
+            target: x86_64-unknown-linux-gnu
           - os: windows-latest
             target: x86_64-pc-windows-msvc
           - os: macos-latest
@@ -33,10 +33,15 @@ jobs:
 
       # - uses: chetan/git-restore-mtime-action@v2
 
-      - name: Setup environment
+      - name: Setup environment (ubuntu)
         if: ${{ matrix.os == 'ubuntu-latest' }}
         run: |
-          sudo apt update && sudo apt install -y musl-tools musl-dev clang lld
+          sudo apt update && sudo apt install -y musl-tools musl-dev pkg-config libssl-dev clang lld
+
+      - name: Setup environment (macos)
+        if: ${{ matrix.os == 'macos-latest' }}
+        run: |
+          brew install llvm && brew link --force llvm
 
       - name: Setup rust
         uses: dtolnay/rust-toolchain@stable
