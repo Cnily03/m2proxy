@@ -1,0 +1,20 @@
+[package]
+name = "m2proxy"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "m2proxy"
+path = "src/main.rs"
+
+[dependencies]
+tokio = { version = "1.0", features = ["full"] }
+hyper = { version = "1.0", features = ["full"] }
+hyper-util = { version = "0.1", features = ["full"] }
+hyper-tls = "0.6"
+http-body-util = "0.1"
+clap = { version = "4.0", features = ["derive"] }
+url = "2.4"
+anyhow = "1.0"
+tower = "0.5"
+tower-http = "0.6"
