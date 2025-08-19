@@ -8,9 +8,11 @@ use http_body_util::{BodyExt, Full};
 use hyper::body::Bytes;
 use hyper::server::conn::http1;
 use hyper::service::service_fn;
-use hyper::{body::Incoming, Request, Response, StatusCode, Uri};
+use hyper::{Request, Response, StatusCode, Uri, body::Incoming};
 use hyper_util::rt::TokioIo;
 use tokio::net::TcpListener;
+use tracing::{error, info};
+use tracing_subscriber;
 use url::Url;
 
 #[derive(Parser, Debug)]
@@ -31,10 +33,16 @@ struct Args {
 }
 
 async fn proxy_handler(req: Request<Incoming>) -> Result<Response<Full<Bytes>>, Infallible> {
+    let method = req.method().clone();
+    let uri = req.uri().clone();
+
     match proxy_request(req).await {
-        Ok(response) => Ok(response),
+        Ok(response) => {
+            tracing::debug!("{} {} -> {}", method, uri, response.status());
+            Ok(response)
+        }
         Err(e) => {
-            eprintln!("Proxy error: {}", e);
+            error!("Proxy error for {} {}: {}", method, uri, e);
             Ok(Response::builder()
                 .status(StatusCode::INTERNAL_SERVER_ERROR)
                 .body(Full::new(Bytes::from(format!("Proxy error: {}", e))))
@@ -220,12 +228,19 @@ fn get_request_origin(headers: &hyper::HeaderMap, uri: &Uri) -> String {
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    // Initialize tracing with default info level
+    tracing_subscriber::fmt()
+        .with_env_filter(
+            tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| "info".into()),
+        )
+        .init();
+
     let args = Args::parse();
 
     let addr = SocketAddr::new(args.host.parse()?, args.port);
     let listener = TcpListener::bind(addr).await?;
 
-    println!("Proxy server listening on http://{}", addr);
+    info!("Proxy is running on http://{}", addr);
 
     loop {
         let (stream, _) = listener.accept().await?;
@@ -236,7 +251,7 @@ async fn main() -> Result<()> {
                 .serve_connection(io, service_fn(proxy_handler))
                 .await
             {
-                eprintln!("Error serving connection: {:?}", err);
+                error!("Error serving connection: {:?}", err);
             }
         });
     }
