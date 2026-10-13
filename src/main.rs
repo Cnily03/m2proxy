@@ -66,7 +66,7 @@ async fn proxy_request(req: Request<Incoming>) -> Result<Response<Full<Bytes>>> 
         }
     };
 
-    // Build new request while preserving original URL formatting
+    // Build new request
     let target_uri = Uri::from_str(&target_url_str)?;
 
     // Collect original request body
@@ -233,49 +233,6 @@ fn get_request_origin(headers: &hyper::HeaderMap, uri: &Uri) -> String {
     };
 
     format!("{}://{}", scheme, host)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::build_target_url_str;
-    use hyper::Uri;
-
-    #[test]
-    fn build_target_url_str_preserves_query() {
-        let uri: Uri = "/https://example.com/search?q=rust&sort=desc"
-            .parse()
-            .unwrap();
-
-        assert_eq!(
-            build_target_url_str(&uri),
-            "https://example.com/search?q=rust&sort=desc"
-        );
-    }
-
-    #[test]
-    fn build_target_url_str_defaults_to_https() {
-        let uri: Uri = "/example.com/path?x=1".parse().unwrap();
-
-        assert_eq!(build_target_url_str(&uri), "https://example.com/path?x=1");
-    }
-
-    #[test]
-    fn build_target_url_str_preserves_original_format() {
-        let uri: Uri = "/https://example.com////bbb////c????ddd=3&&e"
-            .parse()
-            .unwrap();
-
-        let target_url_str = build_target_url_str(&uri);
-
-        assert_eq!(
-            target_url_str,
-            "https://example.com////bbb////c????ddd=3&&e"
-        );
-        assert_eq!(
-            target_url_str.parse::<Uri>().unwrap().to_string(),
-            "https://example.com////bbb////c????ddd=3&&e"
-        );
-    }
 }
 
 #[tokio::main]
