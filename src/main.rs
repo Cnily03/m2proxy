@@ -53,22 +53,7 @@ async fn proxy_handler(req: Request<Incoming>) -> Result<Response<Full<Bytes>>, 
 
 async fn proxy_request(req: Request<Incoming>) -> Result<Response<Full<Bytes>>> {
     let uri = req.uri();
-    let path = uri.path();
-
-    // Extract target URL (remove leading '/')
-    let target_url_str = if path.starts_with('/') {
-        &path[1..]
-    } else {
-        path
-    };
-
-    // If no protocol prefix, default to https
-    let target_url_str =
-        if !target_url_str.starts_with("http://") && !target_url_str.starts_with("https://") {
-            format!("https://{}", target_url_str)
-        } else {
-            target_url_str.to_string()
-        };
+    let target_url_str = build_target_url_str(uri);
 
     // Parse target URL
     let target_url = match Url::parse(&target_url_str) {
@@ -78,6 +63,30 @@ async fn proxy_request(req: Request<Incoming>) -> Result<Response<Full<Bytes>>> 
                 .status(StatusCode::BAD_REQUEST)
                 .body(Full::new(Bytes::from("Invalid target URL")))
                 .unwrap());
+        }
+
+        fn build_target_url_str(uri: &Uri) -> String {
+            let path = uri.path();
+
+            // Extract target URL (remove leading '/')
+            let mut target_url_str = if path.starts_with('/') {
+                path[1..].to_string()
+            } else {
+                path.to_string()
+            };
+
+            // Preserve request query parameters for proxied URL
+            if let Some(query) = uri.query() {
+                target_url_str.push('?');
+                target_url_str.push_str(query);
+            }
+
+            // If no protocol prefix, default to https
+            if !target_url_str.starts_with("http://") && !target_url_str.starts_with("https://") {
+                format!("https://{}", target_url_str)
+            } else {
+                target_url_str
+            }
         }
     };
 
@@ -203,6 +212,31 @@ fn get_request_origin(headers: &hyper::HeaderMap, uri: &Uri) -> String {
     if let Some(origin_header) = headers.get("origin") {
         if let Ok(origin_str) = origin_header.to_str() {
             return origin_str.to_string();
+        }
+
+        #[cfg(test)]
+        mod tests {
+            use super::build_target_url_str;
+            use hyper::Uri;
+
+            #[test]
+            fn build_target_url_str_preserves_query() {
+                let uri: Uri = "/https://example.com/search?q=rust&sort=desc"
+                    .parse()
+                    .unwrap();
+
+                assert_eq!(
+                    build_target_url_str(&uri),
+                    "https://example.com/search?q=rust&sort=desc"
+                );
+            }
+
+            #[test]
+            fn build_target_url_str_defaults_to_https() {
+                let uri: Uri = "/example.com/path?x=1".parse().unwrap();
+
+                assert_eq!(build_target_url_str(&uri), "https://example.com/path?x=1");
+            }
         }
     }
 
