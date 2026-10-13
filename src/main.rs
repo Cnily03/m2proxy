@@ -64,30 +64,6 @@ async fn proxy_request(req: Request<Incoming>) -> Result<Response<Full<Bytes>>> 
                 .body(Full::new(Bytes::from("Invalid target URL")))
                 .unwrap());
         }
-
-        fn build_target_url_str(uri: &Uri) -> String {
-            let path = uri.path();
-
-            // Extract target URL (remove leading '/')
-            let mut target_url_str = if path.starts_with('/') {
-                path[1..].to_string()
-            } else {
-                path.to_string()
-            };
-
-            // Preserve request query parameters for proxied URL
-            if let Some(query) = uri.query() {
-                target_url_str.push('?');
-                target_url_str.push_str(query);
-            }
-
-            // If no protocol prefix, default to https
-            if !target_url_str.starts_with("http://") && !target_url_str.starts_with("https://") {
-                format!("https://{}", target_url_str)
-            } else {
-                target_url_str
-            }
-        }
     };
 
     // Build new request
@@ -172,6 +148,30 @@ async fn proxy_request(req: Request<Incoming>) -> Result<Response<Full<Bytes>>> 
     }
 
     Ok(response_builder.body(Full::new(resp_body_bytes))?)
+}
+
+fn build_target_url_str(uri: &Uri) -> String {
+    let path = uri.path();
+
+    // Extract target URL (remove leading '/')
+    let mut target_url_str = if path.starts_with('/') {
+        path[1..].to_string()
+    } else {
+        path.to_string()
+    };
+
+    // Preserve request query parameters for proxied URL
+    if let Some(query) = uri.query() {
+        target_url_str.push('?');
+        target_url_str.push_str(query);
+    }
+
+    // If no protocol prefix, default to https
+    if !target_url_str.starts_with("http://") && !target_url_str.starts_with("https://") {
+        format!("https://{}", target_url_str)
+    } else {
+        target_url_str
+    }
 }
 
 fn process_location_header(
