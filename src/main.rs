@@ -66,8 +66,8 @@ async fn proxy_request(req: Request<Incoming>) -> Result<Response<Full<Bytes>>> 
         }
     };
 
-    // Build new request
-    let target_uri = Uri::from_str(&target_url.to_string())?;
+    // Build new request while preserving original URL formatting
+    let target_uri = Uri::from_str(&target_url_str)?;
 
     // Collect original request body
     let (parts, body) = req.into_parts();
@@ -257,6 +257,24 @@ mod tests {
         let uri: Uri = "/example.com/path?x=1".parse().unwrap();
 
         assert_eq!(build_target_url_str(&uri), "https://example.com/path?x=1");
+    }
+
+    #[test]
+    fn build_target_url_str_preserves_original_format() {
+        let uri: Uri = "/https://example.com////bbb////c????ddd=3&&e"
+            .parse()
+            .unwrap();
+
+        let target_url_str = build_target_url_str(&uri);
+
+        assert_eq!(
+            target_url_str,
+            "https://example.com////bbb////c????ddd=3&&e"
+        );
+        assert_eq!(
+            target_url_str.parse::<Uri>().unwrap().to_string(),
+            "https://example.com////bbb////c????ddd=3&&e"
+        );
     }
 }
 
