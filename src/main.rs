@@ -213,31 +213,6 @@ fn get_request_origin(headers: &hyper::HeaderMap, uri: &Uri) -> String {
         if let Ok(origin_str) = origin_header.to_str() {
             return origin_str.to_string();
         }
-
-        #[cfg(test)]
-        mod tests {
-            use super::build_target_url_str;
-            use hyper::Uri;
-
-            #[test]
-            fn build_target_url_str_preserves_query() {
-                let uri: Uri = "/https://example.com/search?q=rust&sort=desc"
-                    .parse()
-                    .unwrap();
-
-                assert_eq!(
-                    build_target_url_str(&uri),
-                    "https://example.com/search?q=rust&sort=desc"
-                );
-            }
-
-            #[test]
-            fn build_target_url_str_defaults_to_https() {
-                let uri: Uri = "/example.com/path?x=1".parse().unwrap();
-
-                assert_eq!(build_target_url_str(&uri), "https://example.com/path?x=1");
-            }
-        }
     }
 
     // If no Origin header, build from request
@@ -258,6 +233,31 @@ fn get_request_origin(headers: &hyper::HeaderMap, uri: &Uri) -> String {
     };
 
     format!("{}://{}", scheme, host)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::build_target_url_str;
+    use hyper::Uri;
+
+    #[test]
+    fn build_target_url_str_preserves_query() {
+        let uri: Uri = "/https://example.com/search?q=rust&sort=desc"
+            .parse()
+            .unwrap();
+
+        assert_eq!(
+            build_target_url_str(&uri),
+            "https://example.com/search?q=rust&sort=desc"
+        );
+    }
+
+    #[test]
+    fn build_target_url_str_defaults_to_https() {
+        let uri: Uri = "/example.com/path?x=1".parse().unwrap();
+
+        assert_eq!(build_target_url_str(&uri), "https://example.com/path?x=1");
+    }
 }
 
 #[tokio::main]
