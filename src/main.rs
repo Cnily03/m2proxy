@@ -53,22 +53,7 @@ async fn proxy_handler(req: Request<Incoming>) -> Result<Response<Full<Bytes>>, 
 
 async fn proxy_request(req: Request<Incoming>) -> Result<Response<Full<Bytes>>> {
     let uri = req.uri();
-    let path = uri.path();
-
-    // Extract target URL (remove leading '/')
-    let target_url_str = if path.starts_with('/') {
-        &path[1..]
-    } else {
-        path
-    };
-
-    // If no protocol prefix, default to https
-    let target_url_str =
-        if !target_url_str.starts_with("http://") && !target_url_str.starts_with("https://") {
-            format!("https://{}", target_url_str)
-        } else {
-            target_url_str.to_string()
-        };
+    let target_url_str = build_target_url_str(uri);
 
     // Parse target URL
     let target_url = match Url::parse(&target_url_str) {
@@ -82,7 +67,7 @@ async fn proxy_request(req: Request<Incoming>) -> Result<Response<Full<Bytes>>> 
     };
 
     // Build new request
-    let target_uri = Uri::from_str(&target_url.to_string())?;
+    let target_uri = Uri::from_str(&target_url_str)?;
 
     // Collect original request body
     let (parts, body) = req.into_parts();
@@ -163,6 +148,30 @@ async fn proxy_request(req: Request<Incoming>) -> Result<Response<Full<Bytes>>> 
     }
 
     Ok(response_builder.body(Full::new(resp_body_bytes))?)
+}
+
+fn build_target_url_str(uri: &Uri) -> String {
+    let path = uri.path();
+
+    // Extract target URL (remove leading '/')
+    let mut target_url_str = if path.starts_with('/') {
+        path[1..].to_string()
+    } else {
+        path.to_string()
+    };
+
+    // Preserve request query parameters for proxied URL
+    if let Some(query) = uri.query() {
+        target_url_str.push('?');
+        target_url_str.push_str(query);
+    }
+
+    // If no protocol prefix, default to https
+    if !target_url_str.starts_with("http://") && !target_url_str.starts_with("https://") {
+        format!("https://{}", target_url_str)
+    } else {
+        target_url_str
+    }
 }
 
 fn process_location_header(
